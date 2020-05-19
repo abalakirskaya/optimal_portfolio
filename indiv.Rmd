@@ -1,0 +1,591 @@
+---
+title: "individual"
+output: html_document
+---
+
+```{r}
+library(R.matlab)
+library(readxl)
+library(PerformanceAnalytics)
+library(quantmod)
+library(package="quantmod")
+library(tseries)
+library(scdensity)
+library(quadprog)
+library(PortfolioAnalytics)
+library(DEoptim)
+library(robustbase)
+library(tidyquant)
+#library(tidyverse)
+library(timetk)
+#library(broom)
+library(lsei)
+```
+```{r}
+
+#YOU SHOULD INSTALL IT AND PUT THE TICK IN PACKAGES LIST IN "IntroCompFinR" PACKAGE
+install.packages("IntroCompFinR", repos="http://R-Forge.R-project.org")
+
+```
+
+TASK 1
+```{r}
+data <- readMat("UCU_Data.mat")
+m <- data.frame(data$Mkt)
+m <- subset(m, m$X1>199612)
+m <- subset(m, m$X1<201401)
+f <- data.frame(data$FF6)
+f <- subset(f, f$X1>199612)
+f <- subset(f, f$X1<201401)
+cola1<- as.data.frame(read_excel("cola.xls"))
+pepsi1<- read_excel("pepsi.xls")
+mcd1<- read_excel("mcd.xls")
+unilever1<- read_excel("unilever.xls")
+nestle1<- read_excel("nestle.xls")
+
+prices <- cola1$Close
+dates <- as.Date(cola1$Date)
+ts <- xts(prices, dates)
+
+cola <- monthlyReturn(ts)
+cola <- as.double(cola)
+
+prices <- pepsi1$Close
+dates <- as.Date(pepsi1$Date)
+ts <- xts(prices, dates)
+
+pepsi <- monthlyReturn(ts)
+pepsi <- as.double(pepsi)
+
+prices <- mcd1$Close
+dates <- as.Date(mcd1$Date)
+ts <- xts(prices, dates)
+
+mcd <- monthlyReturn(ts)
+mcd <- as.double(mcd)
+
+prices <- unilever1$Close
+dates <- as.Date(unilever1$Date)
+ts <- xts(prices, dates)
+
+unilever <- monthlyReturn(ts)
+unilever <- as.double(unilever)
+
+prices <- nestle1$Close
+dates <- as.Date(nestle1$Date)
+ts <- xts(prices, dates)
+
+nestle <- monthlyReturn(ts)
+nestle <- as.double(nestle)
+
+my_data <- data.frame(date = f$X1, size = f$X2, value = f$X3, momentum = f$X4, investment = f$X5, pfofitability = f$X6, low_volatility = f$X7,return = m$X2, cola = cola, pepsi = pepsi, mcd = mcd, unilever = unilever, nestle = nestle)
+show(my_data)
+```
+
+TASK 2
+```{r}
+exReturn <- my_data[,-1]
+
+# mean and standard deviation
+
+
+Mean=sapply(exReturn,mean)
+
+Volatility=sapply(exReturn,sd)
+
+Sharpe_Ratio <- vector()
+
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$size)/sd(exReturn$size))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$value)/sd(exReturn$value))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$momentum)/sd(exReturn$momentum))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$investment)/sd(exReturn$investment))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$pfofitability)/sd(exReturn$pfofitability))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$low_volatility)/sd(exReturn$low_volatility))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$return)/sd(exReturn$return))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$cola)/sd(exReturn$cola))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$pepsi)/sd(exReturn$pepsi))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$mcd)/sd(exReturn$mcd))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$unilever)/sd(exReturn$unilever))
+Sharpe_Ratio <- c(Sharpe_Ratio, mean(exReturn$nestle)/sd(exReturn$nestle))
+
+
+
+cbind(Mean, Volatility, Sharpe_Ratio)
+
+```
+
+TASK 3
+```{r}
+size_var <- VaR(R = my_data$size, p = 0.95, method = "historical")
+value_var <- VaR(R = my_data$value, p = 0.95, method = "historical")
+momentum_var <- VaR(R = my_data$momentum, p = 0.95, method = "historical")
+investment_var <- VaR(R = my_data$investment, p = 0.95, method = "historical")
+profitability_var <- VaR(R = my_data$pfofitability, p = 0.95, method = "historical")
+low_volatility_var <- VaR(R = my_data$low_volatility, p = 0.95, method = "historical")
+return_var <- VaR(R = my_data$return, p = 0.95, method = "historical")
+cola_var <- VaR(R = my_data$cola, p = 0.95, method = "historical")
+pepsi_var <- VaR(R = my_data$pepsi, p = 0.95, method = "historical")
+mcd_var <- VaR(R = my_data$mcd, p = 0.95, method = "historical")
+unilever_var <- VaR(R = my_data$unilever, p = 0.95, method = "historical")
+nestle_var <- VaR(R = my_data$nestle, p = 0.95, method = "historical")
+
+comp <- data.frame(mean = c(size_var, value_var, momentum_var, investment_var, profitability_var, low_volatility_var, return_var, cola_var, pepsi_var, mcd_var, unilever_var, nestle_var))
+u <- c("VaR95")
+p <- c("size", "value", "momentum", "investment", "profitability", "low_volatility", "Mkt return", "cola", "pepsi", "mcd","unilever", "nestle")
+dimnames(comp) = list(p, u)
+show(comp)
+```
+
+
+
+TASK 4
+After running this code, You will see two plots - for investment without factors(task 4.1) and with factors(4.3): Y - returns, X - period. I have 84 periods each for 10 years - because I have data for 204 month and I`m using overlapping periods for 120 month.
+```{r}
+M <- 120
+bigt <- 204
+N <- 5
+gam <- 5
+np <- 4
+mean_var_all <- vector()
+min_var_all <- vector()
+cvar95_all <- vector()
+ew_all <- vector()
+mean_var_trans_all <- vector()
+min_var_trans_all <- vector()
+cvar95_trans_all <- vector()
+ew_trans_all <- vector()
+mean_var_factors_all <- vector()
+min_var_factors_all <- vector()
+cvar95_factors_all <- vector()
+ew_factors_all <- vector()
+mean_var_factors_all2 <- vector()
+min_var_factors_all2 <- vector()
+mean_var_factors_trans_all2 <- vector()
+min_var_factors_trans_all2 <- vector()
+ff_intercept <- vector()
+ff_mkt <- vector()
+ff_size <- vector()
+ff_value <- vector()
+
+meanf_weight_size <- vector()
+meanf_weight_value <- vector()
+meanf_weight_momentum <- vector()
+meanf_weight_investment <- vector()
+meanf_weight_profitability <- vector()
+meanf_weight_low_volatility <- vector()
+
+
+minf_weight_size <- vector()
+minf_weight_value <- vector()
+minf_weight_momentum <- vector()
+minf_weight_investment <- vector()
+minf_weight_profitability <- vector()
+minf_weight_low_volatility <- vector()
+
+cvar95f_weight_size <- vector()
+cvar95f_weight_value <- vector()
+cvar95f_weight_momentum <- vector()
+cvar95f_weight_investment <- vector()
+cvar95f_weight_profitability <- vector()
+cvar95f_weight_low_volatility <- vector()
+
+ewf_weight_size <- vector()
+ewf_weight_value <- vector()
+ewf_weight_momentum <- vector()
+ewf_weight_investment <- vector()
+ewf_weight_profitability <- vector()
+ewf_weight_low_volatility <- vector()
+
+stocks <- data.frame(cola = my_data$cola, pepsi = my_data$pepsi, mcd = my_data$mcd, unilever = my_data$unilever, nestle = my_data$nestle)
+a <- bigt - M
+for(i in 1 : a){
+  t0 <- i
+  #t0 <- 1
+  t <- M+i-1
+  #t <- M
+  p <- 1
+  dataest <- data.frame(return = my_data$return[t0:t],size = my_data$size[t0:t], value =my_data$value[t0:t], momentum = my_data$momentum[t0:t],investment = my_data$investment[t0:t], pfofitability = my_data$pfofitability[t0:t], low_volatility = my_data$low_volatility[t0:t], cola = my_data$cola[t0:t], pepsi = my_data$pepsi[t0:t], mcd = my_data$mcd[t0:t], unilever = my_data$unilever[t0:t], nestle = my_data$nestle[t0:t])
+  
+
+  
+  return_mean <- mean(dataest$return)
+  size_mean <- mean(dataest$size)
+  value_mean <- mean(dataest$value)
+  momentum_mean <- mean(dataest$momentum)
+  investment_mean <- mean(dataest$investment)
+  profitability_mean <- mean(dataest$pfofitability)
+  low_volatility_mean <- mean(dataest$low_volatility)
+  
+  
+  return_volatility <- sd(dataest$return)
+  size_volatility <- sd(dataest$size)
+  value_volatility <- sd(dataest$value)
+  momentum_volatility <- sd(dataest$momentum)
+  investment_volatility <- sd(dataest$investment)
+  profitability_volatility <- sd(dataest$pfofitability)
+  low_volatility_volatility <- sd(dataest$low_volatility)
+
+
+  row.names(stocks) <- cola1$Date
+  stocksest <- data.frame(cola = stocks$cola[t0:t], pepsi = stocks$pepsi[t0:t], mcd = stocks$mcd[t0:t], unilever = stocks$unilever[t0:t], nestle = stocks$nestle[t0:t])
+  row.names(stocksest) <- cola1$Date[t0:t]
+  
+  rcov <- cov(stocksest)
+  er = c(mean(stocksest$cola), mean(stocksest$pepsi), mean(stocksest$mcd), mean(stocksest$unilever), mean(stocksest$nestle))
+  asset.names = c("cola", "pepsi", "mcd", "unilever", "nestle")
+  names(er) = asset.names
+  
+  #Mean variance portfolio
+   #compute efficient portfolio subject to target return with no short sales
+  target.return = return_mean
+  mean_var = efficient.portfolio(er, rcov, target.return)
+  mean_var_weights <- mean_var$weights
+  mean_var_returns <- Return.portfolio(stocksest, weights = mean_var_weights)
+  mean_var_returns_trans <- mean_var_returns - mean_var_returns*0.005
+  mean_var_return <- mean_var$er
+  mean_var_sd <- mean_var$sd
+  mean_var_sr <- (mean_var_return - 0.005)/mean_var_sd
+  mean_var_all <- c(mean_var_all, mean_var_return)
+  mean_var_trans_all <- c(mean_var_trans_all, mean_var_return - mean_var_return*0.005)
+  
+  
+  
+  
+  #Min portfolio
+  
+  # construct the data
+  r.free = 0.005
+  dimnames(rcov) = list(asset.names, asset.names)
+  
+  # compute global minimum variance portfolio with no short sales
+  min_var = globalMin.portfolio(er, rcov, shorts=FALSE)
+  min_var_weights <- min_var$weights
+  min_var_returns <- Return.portfolio(stocksest, weights = min_var_weights)
+  min_var_returns_trans <- min_var_returns - min_var_returns*0.005
+  min_var_return <- min_var$er
+  min_var_sd <- min_var$sd
+  min_var_sr <- (min_var_return - 0.005)/min_var_sd
+  min_var_all <- c(min_var_all, min_var_return)
+  min_var_trans_all <- c(min_var_trans_all, min_var_return - min_var_return*0.005)
+  
+  
+  
+  
+  #CVAR95 portfolio
+  cvar95 <- ES(stocksest,p=0.95,weights = rep(1/5,5),portfolio_method="component")
+  cvar95_weights <- c(cvar95$pct_contrib_MES[1], cvar95$pct_contrib_MES[2], cvar95$pct_contrib_MES[3], cvar95$pct_contrib_MES[4], cvar95$pct_contrib_MES[5])
+  cvar95_returns <- Return.portfolio(stocksest, weights = cvar95_weights)
+  cvar95_returns_trans <- cvar95_returns - cvar95_returns*0.005
+  cvar95_return <- mean(cvar95_returns)
+  cvar95_sd <- sd(cvar95_returns)
+  cvar95_sr <- (cvar95_return - 0.005)/cvar95_sd
+  cvar95_all <- c(cvar95_all, cvar95_return)
+  cvar95_trans_all <- c(cvar95_trans_all, cvar95_return - cvar95_return*0.005)
+  
+  
+  
+  
+  #Equal-weight portfolio
+  # compute equally weighted portfolio
+  ew = rep(1,5)/5
+  equal_weight = getPortfolio(er=er,cov.mat=rcov,weights=ew)
+  ew_weights <- equal_weight$weights
+  ew_returns <- Return.portfolio(stocksest, weights = ew_weights)
+  ew_returns_trans <- ew_returns - ew_returns*0.005
+  ew_return <- equal_weight$er
+  ew_sd <- equal_weight$sd
+  ew_sr <- (ew_return - 0.005)/ew_sd
+  ew_all <- c(ew_all, ew_return)
+  ew_trans_all <- c(ew_trans_all, ew_return - ew_return*0.005)
+  
+  
+  
+  
+
+
+
+
+  factors <- data.frame(size = my_data$size[t0:t], value = my_data$value[t0:t], momentum = my_data$momentum[t0:t], investment = my_data$investment[t0:t], profitability = my_data$pfofitability[t0:t], low_volatility = my_data$low_volatility[t0:t], mean = mean_var_returns_trans, min = min_var_returns_trans, cvar95 = cvar95_returns_trans, ew = ew_returns_trans)
+  row.names(factors) <- cola1$Date[t0:t]
+
+  ff_portfolio_returns <- data.frame(size = my_data$size[t0:t], value = my_data$value[t0:t], momentum = my_data$momentum[t0:t], investment = my_data$investment[t0:t], profitability = my_data$pfofitability[t0:t], low_volatility = my_data$low_volatility[t0:t])
+  row.names(ff_portfolio_returns) <- cola1$Date[t0:t]
+  
+  
+  ff_model <- lm(ew_returns ~ dataest$return +  dataest$size +  dataest$value)
+  ff_intercept <- c(ff_intercept, ff_model$coefficients[1])
+  ff_mkt <- c(ff_mkt, ff_model$coefficients[2])
+  ff_size <- c(ff_size, ff_model$coefficients[3])
+  ff_value <- c(ff_value, ff_model$coefficients[4])
+
+
+
+  factors$size[factors$size < 0]<- 0
+  factors$value[factors$value < 0]<- 0
+  factors$investment[factors$investment < 0]<- 0
+  factors$momentum[factors$momentum < 0]<- 0
+  factors$profitability[factors$profitability < 0]<- 0
+  factors$low_volatility[factors$low_volatility < 0]<- 0
+
+  A <- matrix(c(as.numeric(factors$size),as.numeric(factors$value),as.numeric(factors$investment),as.numeric(factors$momentum),as.numeric(factors$profitability),as.numeric(factors$low_volatility)), ncol = 6)
+  
+  
+  
+  
+  
+  #Factor investing mean-var
+  belec1 <- c(as.numeric(factors$portfolio.returns))
+  nnlselec <- pnnls(A,belec1, k = 0, sum = 0.6)
+
+  
+
+  ret1 <- nnlselec$x[1]*mean(factors$size) + nnlselec$x[2]*mean(factors$value) + nnlselec$x[3]*mean(factors$investment)+nnlselec$x[4]*mean(factors$momentum)+nnlselec$x[5]*mean(factors$profitability)+nnlselec$x[6]*mean(factors$low_volatility)
+  mean_var_factors_all <- c(mean_var_factors_all, ret1)
+  
+  meanf_weight_size <- c(meanf_weight_size, nnlselec$x[1])
+  meanf_weight_value <- c(meanf_weight_value, nnlselec$x[2])
+  meanf_weight_momentum <- c(meanf_weight_momentum, nnlselec$x[3])
+  meanf_weight_investment <- c(meanf_weight_investment, nnlselec$x[4])
+  meanf_weight_profitability <- c(meanf_weight_profitability, nnlselec$x[5])
+  meanf_weight_low_volatility <- c(meanf_weight_low_volatility, nnlselec$x[6])
+  
+  #Factor investing min-var
+
+  belec2 <- c(as.numeric(factors$portfolio.returns.1))
+  nnlselec <- pnnls(A,belec2, k = 0, sum = 0.6)
+  ret2 <- nnlselec$x[1]*mean(factors$size) + nnlselec$x[2]*mean(factors$value) + nnlselec$x[3]*mean(factors$investment)+nnlselec$x[4]*mean(factors$momentum)+nnlselec$x[5]*mean(factors$profitability)+nnlselec$x[6]*mean(factors$low_volatility)
+  min_var_factors_all <- c(min_var_factors_all, ret2)
+  
+  minf_weight_size <- c(minf_weight_size, nnlselec$x[1])
+  minf_weight_value <- c(minf_weight_value, nnlselec$x[2])
+  minf_weight_momentum <- c(minf_weight_momentum, nnlselec$x[3])
+  minf_weight_investment <- c(minf_weight_investment, nnlselec$x[4])
+  minf_weight_profitability <- c(minf_weight_profitability, nnlselec$x[5])
+  minf_weight_low_volatility <- c(minf_weight_low_volatility, nnlselec$x[6])
+  
+  #Factor investing cvar95
+
+  belec3 <- c(as.numeric(factors$portfolio.returns.2))
+  nnlselec <- pnnls(A,belec3, k = 0, sum = 0.6)
+  ret3 <- nnlselec$x[1]*mean(factors$size) + nnlselec$x[2]*mean(factors$value) + nnlselec$x[3]*mean(factors$investment)+nnlselec$x[4]*mean(factors$momentum)+nnlselec$x[5]*mean(factors$profitability)+nnlselec$x[6]*mean(factors$low_volatility)
+  cvar95_factors_all <- c(cvar95_factors_all, ret3)
+  
+  cvar95f_weight_size <- c(cvar95f_weight_size, nnlselec$x[1])
+  cvar95f_weight_value <- c(cvar95f_weight_value, nnlselec$x[2])
+  cvar95f_weight_momentum <- c(cvar95f_weight_momentum, nnlselec$x[3])
+  cvar95f_weight_investment <- c(cvar95f_weight_investment, nnlselec$x[4])
+  cvar95f_weight_profitability <- c(cvar95f_weight_profitability, nnlselec$x[5])
+  cvar95f_weight_low_volatility <- c(cvar95f_weight_low_volatility, nnlselec$x[6])
+  
+  #Factor investing equal-weiaght
+
+  belec4 <- c(as.numeric(factors$portfolio.returns.3))
+  nnlselec <- pnnls(A,belec4, k = 0, sum = 0.6)
+  ret4 <- nnlselec$x[1]*mean(factors$size) + nnlselec$x[2]*mean(factors$value) + nnlselec$x[3]*mean(factors$investment)+nnlselec$x[4]*mean(factors$momentum)+nnlselec$x[5]*mean(factors$profitability)+nnlselec$x[6]*mean(factors$low_volatility)
+  ew_factors_all <- c(ew_factors_all, ret4)
+  
+  ewf_weight_size <- c(ewf_weight_size, nnlselec$x[1])
+  ewf_weight_value <- c(ewf_weight_value, nnlselec$x[2])
+  ewf_weight_momentum <- c(ewf_weight_momentum, nnlselec$x[3])
+  ewf_weight_investment <- c(ewf_weight_investment, nnlselec$x[4])
+  ewf_weight_profitability <- c(ewf_weight_profitability, nnlselec$x[5])
+  ewf_weight_low_volatility <- c(ewf_weight_low_volatility, nnlselec$x[6])
+
+
+    #Min factorsportfolio
+  factors <- data.frame(size = my_data$size[t0:t], value = my_data$value[t0:t], momentum = my_data$momentum[t0:t], investment = my_data$investment[t0:t], profitability = my_data$pfofitability[t0:t], low_volatility = my_data$low_volatility[t0:t], mean = mean_var_returns_trans, min = min_var_returns_trans, cvar95 = cvar95_returns_trans, ew = ew_returns_trans)
+  row.names(factors) <- cola1$Date[t0:t]
+  # construct the data
+  r.free = 0.005
+  w <- mean(as.numeric(factors$momentum))
+  #print(factors$size)
+  factors2 <- data.frame(size =as.numeric(factors$size), value =as.numeric(factors$value), investment =as.numeric(factors$investment), momentum =as.numeric(factors$momentum), profitability =as.numeric(factors$profitability), low_volatility =as.numeric(factors$low_volatility))
+  row.names(factors2) <- cola1$Date[t0:t]
+  rcov2 <- cov(factors2)
+  #print(rcov2)
+  #print(factors2)
+  asset.names <- c("size", "value", "investment", "momentum", "profitability", "low_volatility")
+  #print(mean(as.numeric(factors2$size)))
+  er2 <- c(mean(factors2$size), mean(factors2$value), mean(factors2$investment), mean(factors2$momentum), mean(factors2$profitability), mean(factors2$low_volatility))
+  dimnames(rcov2) = list(asset.names, asset.names)
+  
+  min_var_factors2 = globalMin.portfolio(er2, rcov2)
+  min_var_factors_weights2 <- min_var_factors2$weights * 0.6
+  min_var_factors_returns2 <- Return.portfolio(factors2, weights = min_var_factors_weights2)
+  min_var_factors_returns_trans2 <- min_var_factors_returns2 - min_var_factors_returns2*0.005
+  min_var_factors_return2 <- min_var_factors2$er
+  min_var_factors_sd2 <- min_var_factors2$sd
+  min_va_factorsr_sr2 <- (min_var_factors_return2 - 0.005)/min_var_factors_sd2
+  min_var_factors_all2 <- c(min_var_factors_all2, min_var_factors_return2)
+  min_var_factors_trans_all2 <- c(min_var_factors_trans_all2, min_var_factors_return2 - min_var_factors_returns2*0.005)
+
+  
+  
+  target.return2 = return_mean
+  mean_var_factors2 = efficient.portfolio(er2, rcov2, target.return2)
+  mean_var_factors_weights2 <- mean_var_factors2$weights*0.6
+  mean_var_factors_returns2 <- Return.portfolio(factors2, weights = mean_var_factors_weights2)
+  mean_var_factors_returns_trans2 <- mean_var_factors_returns2 - mean_var_factors_returns2*0.005
+  mean_var_factors_return2 <- mean_var_factors2$er
+  mean_var_factors_sd2 <- mean_var_factors2$sd
+  mean_var_factors_sr2 <- (mean_var_factors_return2 - 0.005)/mean_var_factors_sd2
+  mean_var_factors_all2 <- c(mean_var_factors_all2, mean_var_factors_return2)
+  mean_var_factors_trans_all2 <- c(mean_var_factors_trans_all2, mean_var_factors_return2 - mean_var_factors_return2*0.005)
+
+
+
+}
+```
+
+TASK 4.1
+```{r}
+print(mean_var_all)
+print(min_var_all)
+print(cvar95_all)
+print(ew_all)
+plot(mean_var_all,type="l",col="red", main ="Return of assets without factors and transaction cost", ylim = c(-0.005, 0.020))
+lines(min_var_all,col="green")
+lines(cvar95_all,col="blue")
+lines(ew_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+
+plot(mean_var_trans_all,type="l",col="red", main ="Return of assets with transaction cost and without factors", ylim = c(-0.005, 0.020))
+lines(min_var_trans_all,col="green")
+lines(cvar95_trans_all,col="blue")
+lines(ew_trans_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+```
+TASK 4.2
+```{r}
+return4_mean <- mean(my_data$return)
+return4_sd <- sd(my_data$return)
+return4_sr <- return4_mean/return4_sd
+
+meanv4_mean <- mean(mean_var_all)
+meanv4_sd <- sd(mean_var_all)
+meanv4_sr <- meanv4_mean/meanv4_sd
+
+minv4_mean <- mean(min_var_all)
+minv4_sd <- sd(min_var_all)
+minv4_sr <- minv4_mean/minv4_sd
+
+cv4_mean <- mean(cvar95_all)
+cv4_sd <- sd(cvar95_all)
+cv4_sr <- cv4_mean/cv4_sd
+
+ew4_mean <- mean(ew_all)
+ew4_sd <- sd(ew_all)
+ew4_sr <- ew4_mean/ew4_sd
+
+comp <- data.frame(mean = c(return4_mean, meanv4_mean, minv4_mean, cv4_mean, ew4_mean), volatility = c(return4_sd, meanv4_sd, minv4_sd, cv4_sd, ew4_sd), sharpe_ratio = c(return4_sr, meanv4_sr, minv4_sr, cv4_sr, ew4_sr))
+u <- c("mean", "volatility", "sharpe_ratio")
+p <- c("return", "mean_variance", "min_variance", "cvar95", "equally-weighted")
+dimnames(comp) = list(p, u)
+show(comp)
+```
+
+TASK 4.3
+```{r}
+plot(mean_var_factors_all,type="l",col="red", main ="Return of assets with factors", ylim = c(-0.005, 0.040))
+lines(min_var_factors_all,col="green")
+lines(cvar95_factors_all,col="blue")
+lines(ew_factors_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+
+plot(min_var_factors_all2,type="l",col="red", main ="Return of portfolios with factors without transaction cost", ylim = c(-0.01, 0.01))
+lines(min_var_factors_all2,col="green")
+legend("bottomright", c("mean-variance","min-variance"), fill=c("red","green"))
+
+
+plot(mean_var_factors_trans_all2,type="l",col="red", main ="Return of portfolios with factors with transaction cost", ylim = c(-0.01, 0.01))
+lines(mean_var_factors_trans_all2,col="green")
+legend("bottomright", c("mean-variance","min-variance"), fill=c("red","green"))
+```
+```{r}
+coef <- data.frame(size = c(mean(meanf_weight_size), mean(minf_weight_size), mean(cvar95f_weight_size), mean(ewf_weight_size)), value = c(mean(meanf_weight_value), mean(minf_weight_value), mean(cvar95f_weight_value), mean(ewf_weight_value)), momentum = c(mean(meanf_weight_momentum), mean(minf_weight_momentum), mean(cvar95f_weight_momentum), mean(ewf_weight_momentum)), investment = c(mean(meanf_weight_investment), mean(minf_weight_investment), mean(cvar95f_weight_investment), mean(ewf_weight_investment)), profitability = c(mean(meanf_weight_profitability), mean(minf_weight_profitability), mean(cvar95f_weight_profitability), mean(ewf_weight_profitability)), low_volatility = c(mean(meanf_weight_low_volatility), mean(minf_weight_low_volatility), mean(cvar95f_weight_low_volatility), mean(ewf_weight_low_volatility)))
+u <- c("size", "value", "momentum", "investment", "profitability", "low_volatility")
+p <- c("mean-variance", "min-variance", "cvar95", "equally-weighted")
+dimnames(coef) = list(p, u)
+show(coef)
+```
+```{r}
+ew4_mean <- mean(ew_all)
+ew4_sd <- sd(ew_all)
+ew4_sr <- ew4_mean/ew4_sd
+
+mvf_mean <- mean(mean_var_factors_all)
+mvf_sd <- sd(mean_var_factors_all)
+mvf_sr <- mvf_mean/mvf_sd
+
+comp <- data.frame(mean = c(ew4_mean, mvf_mean), volatility = c(ew4_sd, mvf_sd), sharpe_ratio = c(ew4_sr, mvf_sr))
+u <- c("mean", "volatility", "sharpe_ratio")
+p <- c("equally-weighted", "mean-variance efficient")
+dimnames(comp) = list(p, u)
+show(comp)
+```
+TASK 5
+```{r}
+FF_coefs <- data.frame(intercept = mean(ff_intercept), mkt = mean(ff_mkt), size = mean(ff_size), value = mean(ff_value))
+show(FF_coefs)
+```
+
+TASK 6
+```{r}
+
+plot(mean_var_all,type="l",col="red", main ="Return of assets without factors and transaction cost", ylim = c(-0.005, 0.020))
+lines(min_var_all,col="green")
+lines(cvar95_all,col="blue")
+lines(ew_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+
+plot(mean_var_factors_all,type="l",col="red", main ="Return of assets with factors", ylim = c(-0.005, 0.020))
+lines(min_var_factors_all,col="green")
+lines(cvar95_factors_all,col="blue")
+lines(ew_factors_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+```
+TASK 7
+```{r}
+plot(mean_var_all,type="l",col="red", main ="Return of assets without factors and transaction cost", ylim = c(-0.005, 0.020))
+lines(min_var_all,col="green")
+lines(cvar95_all,col="blue")
+lines(ew_all,col="brown")
+legend("bottomright", c("mean-variance","min-variance", "Cvar95", "Equally-weighted"), fill=c("red","green", "blue", "brown"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
